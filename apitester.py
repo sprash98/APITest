@@ -25,22 +25,21 @@ class ApiTester(object):
         "username"      : "sprash98",
         "password"      : "Password234!"    
         },
+        
+        {
+        "firstName"     : "San",
+        "lastName"      : "Bad",
+        "email"         : "sprash98#yahoo.com",
+        "phoneNumber"   : "111-222-3333",
+        "username"      : "Bademail",
+        "password"      : "Password234!"    
+        },
         ]
     
     def __init__(self,url,data=None):
         self.url = url
         self.data = data
         
-        
-        
-        #self.val_functions = OrderedDict([
-        #                        ('firstName', self.val_name), 
-        #                        ('lastName', self.val_name),
-        #                        ('username', self.val_user),
-        #                        ('password', self.val_pass),
-        #                        ('email'   , self.val_email),
-        #                        ('phoneNumber', self.val_phone)
-        #                        ])
                                 
     
     def post_req(self):
@@ -48,17 +47,18 @@ class ApiTester(object):
         test_fail = 0
         test_run = 0
         for data in self.data :
+            test_run +=1
             req = requests.post(self.url,json=data)
             resp_json = req.json()
             if resp_json['success'] == True :
-                print("User {} creation successful!\n".format(data['username']))
+                print("User creation for user {} named {} successful!\n".format(test_run,data['username']))
                 test_pass +=1
             else :
                 test_fail += 1
-                print("User {} creation failed with the following error(s):\n")
+                print("User creation for user {} failed with the following error(s):\n".format(test_run))
                 for err in resp_json['errors']:
                     print("{}\n".format(err))
-            test_run +=1
+            
                     
         return (test_run,test_fail,test_pass)
     
@@ -67,83 +67,58 @@ class ApiTester(object):
         result = 0
         for k in self.fields:
             if k not in test :
-                print("{} missing in test. Cannot add user\n".format(k))
+                print("{} missing in test data. Cannot add user\n".format(k))
                 return result
+            
+        if len(test) != len(self.fields) :
+            print("Incorrect number of entries in user data.\
+            Expected {} parameters but got {}. Cannot add user\n".format(len(self.fields),len(test)))
+            return result
+        
         return (result+1)
-                        
-    
-    def file_parse(self,file):
+                                    
+       
         
-        result = 0
-        try:
-            with open(file) as f :
-                tests=TestList()
-                tlist = tests.get_cfg()
-                tc = 1
-                failures = list()
-                for t in tlist :
-                    if not self.validate(t):
-                        print("Test case {} invalid. User cannot be created\n".format(tc))
-                        tc +=1
-                        failures.append(tc)
-                        continue
-        
-                            
-        except IOError:
-            print("Error accessing file {}. Please verify and try again\n".format(f))
-            return result       
-        
-        if failures:
-            print("Testcases that failed parsing in file {}: {}".format(" ".join(map(str,failures))),file)
-        else:
-            result += 1
-        return result
-            
-        
-    def main(self):
-        #if __name__ == '__main__':
+    def main(self):            
         result= 0
-        api_test = ApiTester("http://interview.onforce.com/qe/")
-        #fields= ['firstName', 'lastName', 'username','password','email','phoneNumber']
         parser = argparse.ArgumentParser()
-        #parser.add_argument("-f","--file", help="file containing an array of user dictionaries")
-        
+        parser.add_argument('-tc', '--test', type=str)
         args=parser.parse_args()
-        if args.testcase :
-            api_test.data = args.testcase
+        if args.test :
+            try :
+                tc_data = list()
+                user_data = dict()
+                for (k,v) in list(map(lambda x:x.split(':'),args.test.split(','))) :
+                    user_data[k] = v
+                if self.validate(user_data):
+                    tc_data.append(user_data)
+                    self.data = tc_data
+                else:
+                    print("Input data validation failed. Aborting...\n")
+                    return result    
+            except Exception as e:
+                print("Test argument in incorrect format. Please supply user data \
+                    as dictionary in format <key1>:<value1>,<key2>=<value2> etc\n")
+                return result
                 
         else :
-            api_test.data = api_test._test_list
+            self.data = self._test_list
             
-        test_total = len(api_test.data)
-        (run_total,fail_total,pass_total) = self.post_req()
+        self.test_total = len(self.data)
+        (self.run_total,self.fail_total,self.pass_total) = api_test.post_req()
         
-        print("Test Results:\nTotal Tests: {}, Total Tests Run: {}, Pass: {}, Fail: {}\n".format(test_total,run_total,pass_total,fail_total))
-        return (result+1)    
-        
-                
-if __name__ == '__main__' :
-        #status= 0
-        api_test = ApiTester("http://interview.onforce.com/qe/")
-        #fields= ['firstName', 'lastName', 'username','password','email','phoneNumber']
-        parser = argparse.ArgumentParser()
-        #parser.add_argument("-f","--file", help="file containing an array of user dictionaries")
-        parser.add_argument('-tc', '--testcase', type=json.loads)
-        args=parser.parse_args()
-        if args.testcase :
-            api_test.data = json.loads(args.testcase)
-        else :
-            api_test.data = api_test._test_list
-            
-        test_total = len(api_test.data)
-        (run_total,fail_total,pass_total) = api_test.post_req()
-        
-        print("Test Results:\nTotal Tests: {}, Total Tests Run: {}, Pass: {}, Fail: {}\n".format(test_total,run_total,pass_total,fail_total))
-        #return (status+1)                  
+        #print("Test Results:\nTotal Tests: {}, Total Tests Run: {}, Pass: {}, Fail: {}\n".format(test_total,run_total,pass_total,fail_total))
+        return (result+1)                  
         
         
                                 
-                            
+if __name__ == '__main__':
+    api_test = ApiTester("http://interview.onforce.com/qe/")
+    if not api_test.main() :
+        print("Tests could not be run due to errors. Please try again\n")
+    else :
+        print("Test Results:\nTotal Tests: {}, Total Tests Run: {}, \
+        Pass: {}, Fail: {}\n".format(api_test.test_total,api_test.run_total,api_test.pass_total,api_test.fail_total))                            
                         
                 
             
